@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Phone, MapPin, Star, Clock, CheckCircle, Crown, Heart, MessageCircle, Zap } from "lucide-react";
+import { Phone, MapPin, Star, Clock, CheckCircle, Crown, Heart, MessageCircle, Zap, MapPinIcon, Award, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Company } from "../../../drizzle/schema";
@@ -49,8 +49,25 @@ function isOpenNow(businessHours: Record<string, { open: string; close: string; 
   return nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
 }
 
+function getTodayHours(businessHours: Record<string, { open: string; close: string; closed: boolean }> | null, isNonStop: boolean): string {
+  if (isNonStop) return "24/7";
+  if (!businessHours) return "Program necunoscut";
+  
+  try {
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const today = days[new Date().getDay()];
+    const todayHours = businessHours[today];
+    
+    if (!todayHours || todayHours.closed) return "Închis azi";
+    return `${todayHours.open}-${todayHours.close}`;
+  } catch {
+    return "Program necunoscut";
+  }
+}
+
 export default function CompanyCard({ company, isFavorite, onFavoriteToggle, variant = "default" }: CompanyCardProps) {
   const open = isOpenNow(company.businessHours as Record<string, { open: string; close: string; closed: boolean }> | null, company.isNonStop ?? false);
+  const todayHours = getTodayHours(company.businessHours as Record<string, { open: string; close: string; closed: boolean }> | null, company.isNonStop ?? false);
 
   if (variant === "compact") {
     return (
@@ -70,7 +87,7 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
               {company.name}
             </p>
             <StarRating rating={company.averageRating ?? 0} count={company.reviewCount ?? 0} />
-            <p className="text-xs text-gray-500 truncate mt-0.5">{company.address}</p>
+            <p className="text-xs text-gray-500 truncate mt-0.5">{company.neighborhood || company.address}</p>
           </div>
           <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${open ? "bg-green-500" : "bg-gray-300"}`} />
         </div>
@@ -82,9 +99,9 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
     <div className={`bg-white rounded-2xl overflow-hidden card-hover shadow-card group ${company.isPremium ? "ring-2 ring-[oklch(0.72_0.15_75)]/30" : ""}`}>
       {/* Cover image */}
       <div className="relative h-44 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-        {company.coverImage || (company.gallery as string[] | null)?.[0] ? (
+        {company.logo || (company.gallery as string[] | null)?.[0] ? (
           <img
-            src={company.coverImage ?? (company.gallery as string[])[0]}
+            src={(company.gallery as string[] | null)?.[0] || company.logo || ""}
             alt={company.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
@@ -96,7 +113,7 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
         )}
 
         {/* Overlay badges */}
-        <div className="absolute top-3 left-3 flex gap-1.5">
+        <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap">
           {company.isPremium && (
             <Badge className="badge-premium text-xs px-2 py-0.5 flex items-center gap-1">
               <Crown className="w-3 h-3" /> Premium
@@ -108,7 +125,9 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
             </Badge>
           )}
           {company.isNonStop && (
-            <Badge className="badge-nonstop text-xs px-2 py-0.5">Non-Stop</Badge>
+            <Badge className="badge-nonstop text-xs px-2 py-0.5 flex items-center gap-1">
+              <Zap className="w-3 h-3" /> Non-Stop
+            </Badge>
           )}
         </div>
 
@@ -125,7 +144,8 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
 
         {/* Open/Closed indicator */}
         <div className="absolute bottom-3 right-3">
-          <span className={`text-xs px-2 py-1 rounded-full font-medium ${open ? "bg-green-500 text-white" : "bg-gray-700/80 text-white"}`}>
+          <span className={`text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1 ${open ? "bg-green-500 text-white" : "bg-gray-700/80 text-white"}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${open ? "bg-white" : "bg-gray-400"}`} />
             {open ? "Deschis" : "Închis"}
           </span>
         </div>
@@ -146,28 +166,86 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
           </h3>
         </Link>
 
+        {/* Rating */}
         <StarRating rating={company.averageRating ?? 0} count={company.reviewCount ?? 0} />
 
-        {company.shortDescription && (
+        {/* Description */}
+        {company.description && (
           <p className="text-sm text-gray-500 mt-2 line-clamp-2 leading-relaxed">
-            {company.shortDescription}
+            {company.description.substring(0, 100)}...
           </p>
         )}
 
-        <div className="mt-3 flex flex-col gap-1.5">
-          {company.address && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-[oklch(0.52_0.22_25)]" />
-              <span className="truncate">{company.neighborhood ? `${company.neighborhood}, ` : ""}{company.city}</span>
+        {/* Details Grid */}
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          {/* Location */}
+          {company.neighborhood && (
+            <div className="flex items-start gap-1.5 text-gray-600 bg-gray-50 p-2 rounded-lg">
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-[oklch(0.52_0.22_25)] mt-0.5" />
+              <span className="truncate">{company.neighborhood}</span>
             </div>
           )}
-          {company.phone && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <Phone className="w-3.5 h-3.5 flex-shrink-0 text-[oklch(0.52_0.22_25)]" />
-              <span>{company.phone}</span>
+
+          {/* Hours */}
+          <div className="flex items-start gap-1.5 text-gray-600 bg-gray-50 p-2 rounded-lg">
+            <Clock className="w-3.5 h-3.5 flex-shrink-0 text-[oklch(0.72_0.15_75)] mt-0.5" />
+            <span className="truncate">{todayHours}</span>
+          </div>
+
+          {/* Services */}
+          {company.services && Array.isArray(company.services) && company.services.length > 0 && (
+            <div className="flex items-start gap-1.5 text-gray-600 bg-gray-50 p-2 rounded-lg col-span-2">
+              <Briefcase className="w-3.5 h-3.5 flex-shrink-0 text-[oklch(0.52_0.22_25)] mt-0.5" />
+              <span className="truncate">{(company.services as any)[0]?.name || "Servicii disponibile"}</span>
             </div>
           )}
         </div>
+
+        {/* Contact Info */}
+        <div className="mt-3 flex flex-col gap-1.5">
+          {company.phone && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+              <Phone className="w-3.5 h-3.5 flex-shrink-0 text-[oklch(0.52_0.22_25)]" />
+              <a href={`tel:${company.phone}`} className="hover:text-[oklch(0.52_0.22_25)] transition-colors">
+                {company.phone}
+              </a>
+            </div>
+          )}
+          {company.whatsapp && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+              <MessageCircle className="w-3.5 h-3.5 flex-shrink-0 text-green-500" />
+              <a href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors">
+                WhatsApp disponibil
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Tags/Specialties Info */}
+        {company.tags && Array.isArray(company.tags) && company.tags.length > 0 && (
+          <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="flex items-start gap-1.5">
+              <Award className="w-3.5 h-3.5 flex-shrink-0 text-blue-600 mt-0.5" />
+              <div className="text-xs text-blue-900">
+                <p className="font-semibold">Specialități</p>
+                <p className="text-blue-700 line-clamp-1">{(company.tags as string[]).slice(0, 2).join(", ")}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Coverage Area */}
+        {company.coverageArea && (
+          <div className="mt-2 p-2 bg-purple-50 rounded-lg border border-purple-100">
+            <div className="flex items-start gap-1.5">
+              <MapPinIcon className="w-3.5 h-3.5 flex-shrink-0 text-purple-600 mt-0.5" />
+              <div className="text-xs text-purple-900">
+                <p className="font-semibold">Zona acoperită</p>
+                <p className="text-purple-700">{company.coverageArea}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="mt-4 flex gap-2">
@@ -179,9 +257,16 @@ export default function CompanyCard({ company, isFavorite, onFavoriteToggle, var
               </Button>
             </a>
           )}
+          {company.whatsapp && (
+            <a href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex-1">
+              <Button size="sm" className="w-full bg-green-500 hover:bg-green-600 text-white border-0 text-xs btn-press">
+                <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                WhatsApp
+              </Button>
+            </a>
+          )}
           <Link href={`/firma/${company.slug}`} className="flex-1">
             <Button size="sm" variant="outline" className="w-full text-xs btn-press">
-              <MessageCircle className="w-3.5 h-3.5 mr-1" />
               Detalii
             </Button>
           </Link>
