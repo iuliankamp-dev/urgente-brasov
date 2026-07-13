@@ -33,25 +33,29 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
   );
 }
 
-function isOpenNow(businessHours: Record<string, { open: string; close: string; closed: boolean }> | null, isNonStop: boolean): boolean {
+function isOpenNow(businessHours: any, isNonStop: boolean): boolean {
   if (isNonStop) return true;
-  if (!businessHours) return false;
-  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-  const today = days[new Date().getDay()];
-  const hours = businessHours[today];
-  if (!hours || hours.closed) return false;
-  const now = new Date();
-  const [openH, openM] = hours.open.split(":").map(Number);
-  const [closeH, closeM] = hours.close.split(":").map(Number);
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const openMinutes = (openH ?? 0) * 60 + (openM ?? 0);
-  const closeMinutes = (closeH ?? 0) * 60 + (closeM ?? 0);
-  return nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
+  if (!businessHours || typeof businessHours !== 'object') return false;
+  try {
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const today = days[new Date().getDay()];
+    const hours = businessHours[today];
+    if (!hours || hours.closed) return false;
+    const now = new Date();
+    const [openH, openM] = (hours.open || '').split(":").map(Number);
+    const [closeH, closeM] = (hours.close || '').split(":").map(Number);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const openMinutes = (openH ?? 0) * 60 + (openM ?? 0);
+    const closeMinutes = (closeH ?? 0) * 60 + (closeM ?? 0);
+    return nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
+  } catch {
+    return false;
+  }
 }
 
-function getTodayHours(businessHours: Record<string, { open: string; close: string; closed: boolean }> | null, isNonStop: boolean): string {
+function getTodayHours(businessHours: any, isNonStop: boolean): string {
   if (isNonStop) return "24/7";
-  if (!businessHours) return "Program necunoscut";
+  if (!businessHours || typeof businessHours !== 'object') return "Program necunoscut";
   
   try {
     const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -59,15 +63,15 @@ function getTodayHours(businessHours: Record<string, { open: string; close: stri
     const todayHours = businessHours[today];
     
     if (!todayHours || todayHours.closed) return "Închis azi";
-    return `${todayHours.open}-${todayHours.close}`;
+    return `${todayHours.open || ''}-${todayHours.close || ''}`;
   } catch {
     return "Program necunoscut";
   }
 }
 
 export default function CompanyCard({ company, isFavorite, onFavoriteToggle, variant = "default" }: CompanyCardProps) {
-  const open = isOpenNow(company.businessHours as Record<string, { open: string; close: string; closed: boolean }> | null, company.isNonStop ?? false);
-  const todayHours = getTodayHours(company.businessHours as Record<string, { open: string; close: string; closed: boolean }> | null, company.isNonStop ?? false);
+  const open = isOpenNow(company.businessHours, company.isNonStop ?? false);
+  const todayHours = getTodayHours(company.businessHours, company.isNonStop ?? false);
 
   if (variant === "compact") {
     return (
